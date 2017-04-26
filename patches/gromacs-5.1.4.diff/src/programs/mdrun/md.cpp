@@ -1240,6 +1240,7 @@ double do_md(FILE *fplog, t_commrec *cr, int nfile, const t_filenm fnm[],
               plumed_cmd(plumedmain,"getApiVersion",&pversion);
               long int lstep=step; plumed_cmd(plumedmain,"setStepLong",&lstep);
               plumed_cmd(plumedmain,"setPositions",&state->x[0][0]);
+              plumed_cmd(plumedmain,"setVelocities",&state->v[0][0]);
               plumed_cmd(plumedmain,"setMasses",&mdatoms->massT[0]);
               plumed_cmd(plumedmain,"setCharges",&mdatoms->chargeA[0]);
               plumed_cmd(plumedmain,"setBox",&state->box[0][0]);
