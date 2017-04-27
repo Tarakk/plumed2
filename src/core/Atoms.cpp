@@ -47,6 +47,7 @@ Atoms::Atoms(PlumedMain&plumed):
   collectEnergy(false),
   energyHasBeenSet(false),
   positionsHaveBeenSet(0),
+  velocitiesHaveBeenSet(0),
   massesHaveBeenSet(false),
   chargesHaveBeenSet(false),
   boxHasBeenSet(false),
@@ -79,6 +80,7 @@ void Atoms::startStep(){
   collectEnergy=false; energyHasBeenSet=false; positionsHaveBeenSet=0;
   massesHaveBeenSet=false; chargesHaveBeenSet=false; boxHasBeenSet=false;
   forcesHaveBeenSet=0; virialHasBeenSet=false; dataCanBeSet=true;
+  velocitiesHaveBeenSet=0;
 }
 
 void Atoms::setBox(void*p){
@@ -90,6 +92,12 @@ void Atoms::setPositions(void*p){
   plumed_massert( dataCanBeSet ,"setPositions must be called after setStep in MD code interface");
   plumed_massert( p || gatindex.size()==0, "NULL position pointer with non-zero local atoms");
   mdatoms->setp(p); positionsHaveBeenSet=3;
+}
+
+void Atoms::setVelocities(void*p){
+  plumed_massert( dataCanBeSet ,"setVelocities must be called after setStep in MD code interface");
+  plumed_massert( p || gatindex.size()==0, "NULL velocity pointer with non-zero local atoms");
+  mdatoms->setv(p); velocitiesHaveBeenSet=3;
 }
 
 void Atoms::setMasses(void*p){
@@ -131,6 +139,12 @@ void Atoms::setPositions(void*p,int i){
   mdatoms->setp(p,i); positionsHaveBeenSet++;
 }
 
+void Atoms::setVelocities(void*p,int i){
+  plumed_massert( dataCanBeSet ,"setVelocities must be called after setStep in MD code interface");
+  plumed_massert( p || gatindex.size()==0, "NULL velocity pointer with non-zero local atoms");
+  mdatoms->setv(p,i); velocitiesHaveBeenSet++;
+}
+
 void Atoms::setForces(void*p,int i){
   plumed_massert( dataCanBeSet ,"setForces must be called after setStep in MD code interface");
   plumed_massert( p || gatindex.size()==0, "NULL force pointer with non-zero local atoms");
@@ -164,7 +178,7 @@ void Atoms::shareAll(){
 }
 
 void Atoms::share(const std::set<AtomNumber>& unique){
-  plumed_assert( positionsHaveBeenSet==3 && massesHaveBeenSet );
+  plumed_assert( positionsHaveBeenSet==3 && velocitiesHaveBeenSet==3 && massesHaveBeenSet );
   virial.zero();
   if(zeroallforces || int(gatindex.size())==natoms){
     for(int i=0;i<natoms;i++) forces[i].zero();
@@ -182,14 +196,16 @@ void Atoms::share(const std::set<AtomNumber>& unique){
   if(int(gatindex.size())==natoms && shuffledAtoms==0){
 // faster version, which retrieves all atoms
     mdatoms->getPositions(0,natoms,positions);
+    mdatoms->getVelocities(0,natoms,velocities);
   } else {
 // version that picks only atoms that are available on this proc
     mdatoms->getPositions(gatindex,positions);
+    mdatoms->getVelocities(gatindex,velocities);
   }
 // how many double per atom should be scattered:
-  int ndata=3;
+  int ndata=6;
   if(!massAndChargeOK){
-    ndata=5;
+    ndata=8;
     masses.assign(masses.size(),NAN);
     charges.assign(charges.size(),NAN);
     mdatoms->getCharges(gatindex,charges);
@@ -208,9 +224,12 @@ void Atoms::share(const std::set<AtomNumber>& unique){
         dd.positionsToBeSent[ndata*count+0]=positions[p.index()][0];
         dd.positionsToBeSent[ndata*count+1]=positions[p.index()][1];
         dd.positionsToBeSent[ndata*count+2]=positions[p.index()][2];
+        dd.positionsToBeSent[ndata*count+3]=velocities[p.index()][0];
+        dd.positionsToBeSent[ndata*count+4]=velocities[p.index()][1];
+        dd.positionsToBeSent[ndata*count+5]=velocities[p.index()][2];
         if(!massAndChargeOK){
-          dd.positionsToBeSent[ndata*count+3]=masses[p.index()];
-          dd.positionsToBeSent[ndata*count+4]=charges[p.index()];
+          dd.positionsToBeSent[ndata*count+6]=masses[p.index()];
+          dd.positionsToBeSent[ndata*count+7]=charges[p.index()];
         }
         count++;
       }
@@ -241,9 +260,12 @@ void Atoms::share(const std::set<AtomNumber>& unique){
         positions[dd.indexToBeReceived[i]][0]=dd.positionsToBeReceived[ndata*i+0];
         positions[dd.indexToBeReceived[i]][1]=dd.positionsToBeReceived[ndata*i+1];
         positions[dd.indexToBeReceived[i]][2]=dd.positionsToBeReceived[ndata*i+2];
+        velocities[dd.indexToBeReceived[i]][0]=dd.positionsToBeReceived[ndata*i+3];
+        velocities[dd.indexToBeReceived[i]][1]=dd.positionsToBeReceived[ndata*i+4];
+        velocities[dd.indexToBeReceived[i]][2]=dd.positionsToBeReceived[ndata*i+5];
         if(!massAndChargeOK){
-          masses[dd.indexToBeReceived[i]]      =dd.positionsToBeReceived[ndata*i+3];
-          charges[dd.indexToBeReceived[i]]     =dd.positionsToBeReceived[ndata*i+4];
+          masses[dd.indexToBeReceived[i]]      =dd.positionsToBeReceived[ndata*i+6];
+          charges[dd.indexToBeReceived[i]]     =dd.positionsToBeReceived[ndata*i+7];
         }
       }
     }
@@ -253,8 +275,8 @@ void Atoms::share(const std::set<AtomNumber>& unique){
 void Atoms::wait(){
   dataCanBeSet=false; // Everything should be set by this stage
 // How many double per atom should be scattered
-  int ndata=3;
-  if(!massAndChargeOK)ndata=5;
+  int ndata=6;
+  if(!massAndChargeOK)ndata=8;
 
   if(dd){
     dd.Bcast(box,0);
@@ -278,9 +300,12 @@ void Atoms::wait(){
         positions[dd.indexToBeReceived[i]][0]=dd.positionsToBeReceived[ndata*i+0];
         positions[dd.indexToBeReceived[i]][1]=dd.positionsToBeReceived[ndata*i+1];
         positions[dd.indexToBeReceived[i]][2]=dd.positionsToBeReceived[ndata*i+2];
+        velocities[dd.indexToBeReceived[i]][0]=dd.positionsToBeReceived[ndata*i+3];
+        velocities[dd.indexToBeReceived[i]][1]=dd.positionsToBeReceived[ndata*i+4];
+        velocities[dd.indexToBeReceived[i]][2]=dd.positionsToBeReceived[ndata*i+5];
         if(!massAndChargeOK){
-          masses[dd.indexToBeReceived[i]]      =dd.positionsToBeReceived[ndata*i+3];
-          charges[dd.indexToBeReceived[i]]     =dd.positionsToBeReceived[ndata*i+4];
+          masses[dd.indexToBeReceived[i]]      =dd.positionsToBeReceived[ndata*i+6];
+          charges[dd.indexToBeReceived[i]]     =dd.positionsToBeReceived[ndata*i+7];
         }
       }
       asyncSent=false;
@@ -308,6 +333,7 @@ void Atoms::updateForces(){
 void Atoms::setNatoms(int n){
   natoms=n;
   positions.resize(n);
+  velocities.resize(n);
   forces.resize(n);
   masses.resize(n);
   charges.resize(n);
@@ -342,8 +368,8 @@ void Atoms::setAtomsNlocal(int n){
 // we make sure they are non-zero-sized so as to
 // avoid errors when doing boundary check
     if(n==0) n++;
-    dd.positionsToBeSent.resize(n*5,0.0);
-    dd.positionsToBeReceived.resize(natoms*5,0.0);
+    dd.positionsToBeSent.resize(n*8,0.0);
+    dd.positionsToBeReceived.resize(natoms*8,0.0);
     dd.indexToBeSent.resize(n,0);
     dd.indexToBeReceived.resize(natoms,0);
   };
@@ -453,6 +479,7 @@ void Atoms::setDomainDecomposition(Communicator& comm){
 
 void Atoms::resizeVectors(unsigned n){
   positions.resize(n);
+  velocities.resize(n);
   forces.resize(n);
   masses.resize(n);
   charges.resize(n);

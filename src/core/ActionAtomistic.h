@@ -43,6 +43,7 @@ class ActionAtomistic :
   std::vector<AtomNumber> indexes;         // the set of needed atoms
   std::set<AtomNumber>  unique;
   std::vector<Vector>   positions;       // positions of the needed atoms
+  std::vector<Vector>   velocities;       // velocities of the needed atoms
   double                energy;
   Pbc&                  pbc;
   Tensor                virial;
@@ -77,6 +78,16 @@ public:
 /// Get modifiable position of i-th atom (access by absolute AtomNumber).
 /// Should be used by action that need to modify the stored atomic coordinates
   Vector & modifyPosition(AtomNumber);
+/// Get velocity of i-th atom (access by relative index)
+  const Vector & getVelocity(int)const;
+/// Get velocity of i-th atom (access by absolute AtomNumber).
+/// With direct access to the global atom array
+  const Vector & getVelocity(AtomNumber)const;
+/// Get modifiable position of i-th atom (access by absolute AtomNumber).
+/// Should be used by action that need to modify the stored atomic coordinates
+  Vector & modifyVelocity(AtomNumber);
+/// Get total number of atoms, including virtual ones.
+/// Can be used to make a loop on modifyPosition or getPosition(AtomNumber)
 /// Get total number of atoms, including virtual ones.
 /// Can be used to make a loop on modifyPosition or getPosition(AtomNumber)
   unsigned getTotAtoms()const;
@@ -187,6 +198,22 @@ const Vector & ActionAtomistic::getPosition(AtomNumber i)const{
 inline
 Vector & ActionAtomistic::modifyPosition(AtomNumber i){
   return atoms.positions[i.index()];
+}
+
+// Velocities
+inline
+const Vector & ActionAtomistic::getVelocity(int i)const{
+  return velocities[i];
+}
+
+inline
+const Vector & ActionAtomistic::getVelocity(AtomNumber i)const{
+  return atoms.velocities[i.index()];
+}
+
+inline
+Vector & ActionAtomistic::modifyVelocity(AtomNumber i){
+  return atoms.velocities[i.index()];
 }
 
 inline

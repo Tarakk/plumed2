@@ -65,6 +65,7 @@ void ActionAtomistic::requestAtoms(const vector<AtomNumber> & a){
   int nat=a.size();
   indexes=a;
   positions.resize(nat);
+  velocities.resize(nat);
   forces.resize(nat);
   masses.resize(nat);
   charges.resize(nat);
@@ -218,9 +219,11 @@ void ActionAtomistic::retrieveAtoms(){
   if(donotretrieve) return;
   chargesWereSet=atoms.chargesWereSet();
   const vector<Vector> & p(atoms.positions);
+  const vector<Vector> & v(atoms.velocities);
   const vector<double> & c(atoms.charges);
   const vector<double> & m(atoms.masses);
   for(unsigned j=0;j<indexes.size();j++) positions[j]=p[indexes[j].index()];
+  for(unsigned j=0;j<indexes.size();j++) velocities[j]=v[indexes[j].index()];
   for(unsigned j=0;j<indexes.size();j++) charges[j]=c[indexes[j].index()];
   for(unsigned j=0;j<indexes.size();j++) masses[j]=m[indexes[j].index()];
 }

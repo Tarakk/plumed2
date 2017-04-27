@@ -48,6 +48,7 @@ class Atoms
   friend class ActionWithVirtualAtom;
   int natoms;
   std::vector<Vector> positions;
+  std::vector<Vector> velocities;
   std::vector<Vector> forces;
   std::vector<double> masses;
   std::vector<double> charges;
@@ -64,6 +65,7 @@ class Atoms
   bool   collectEnergy;
   bool   energyHasBeenSet;
   unsigned positionsHaveBeenSet;
+  unsigned velocitiesHaveBeenSet;
   bool massesHaveBeenSet;
   bool chargesHaveBeenSet;
   bool boxHasBeenSet;
@@ -176,7 +178,9 @@ public:
   void setBox(void*);
   void setVirial(void*);
   void setPositions(void*);
+  void setVelocities(void*);
   void setPositions(void*,int);
+  void setVelocities(void*,int);
   void setForces(void*);
   void setForces(void*,int);
   void setMasses(void*);
