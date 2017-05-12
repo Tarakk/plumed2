@@ -54,6 +54,9 @@ protected:
   void setMass(double);
 /// Set its charge
   void setCharge(double);
+/// Get modifiable velocity of i-th atom (access by absolute AtomNumber).
+/// Should be used by action that need to modify the stored velocities
+  Vector & modifyVelocity(AtomNumber);
 /// Request atoms on which the calculation depends
   void requestAtoms(const std::vector<AtomNumber> & a);
 /// Set the derivatives of virtual atom coordinate wrt atoms on which it dependes
@@ -77,6 +80,8 @@ protected:
   void setBoxDerivativesNoPbc();
 public:
   void setGradients();
+/// Modify velocity of virtual atom
+  void rescaleVelocityVirtualAtom(const Vector &rescale);
   const std::map<AtomNumber,Tensor> & getGradients()const;
 /// Return the atom id of the corresponding virtual atom
   AtomNumber getIndex()const;
@@ -119,6 +124,11 @@ void ActionWithVirtualAtom::setAtomsDerivatives(const std::vector<Tensor> &d){
 inline
 const std::map<AtomNumber,Tensor> & ActionWithVirtualAtom::getGradients()const{
   return gradients;
+}
+
+inline
+Vector & ActionWithVirtualAtom::modifyVelocity(AtomNumber i){
+  return atoms.velocities[i.index()];
 }
 
 }

@@ -109,4 +109,14 @@ void ActionWithVirtualAtom::setGradientsIfNeeded(){
   }
 }
 
+void ActionWithVirtualAtom::rescaleVelocityVirtualAtom(const Vector &rescale){
+  for(unsigned i=0;i<getNumberOfAtoms();i++){
+    AtomNumber an=getAbsoluteIndex(i);
+    Vector newVel(modifyVelocity(an));
+    for(unsigned j=0;j<3;j++){
+    	newVel[j] *= rescale[j];
+    }
+  }
+}
+
 }

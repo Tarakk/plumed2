@@ -76,14 +76,14 @@ public:
 /// With direct access to the global atom array
   const Vector & getPosition(AtomNumber)const;
 /// Get modifiable position of i-th atom (access by absolute AtomNumber).
-/// Should be used by action that need to modify the stored atomic coordinates
+/// Should be used by action that need to modify the stored velocities
   Vector & modifyPosition(AtomNumber);
 /// Get velocity of i-th atom (access by relative index)
   const Vector & getVelocity(int)const;
 /// Get velocity of i-th atom (access by absolute AtomNumber).
 /// With direct access to the global atom array
   const Vector & getVelocity(AtomNumber)const;
-/// Get modifiable position of i-th atom (access by absolute AtomNumber).
+/// Get modifiable velocity of i-th atom (access by absolute AtomNumber).
 /// Should be used by action that need to modify the stored atomic coordinates
   Vector & modifyVelocity(AtomNumber);
 /// Get total number of atoms, including virtual ones.
