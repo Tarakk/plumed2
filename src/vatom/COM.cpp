@@ -105,7 +105,7 @@ COM::COM(const ActionOptions&ao):
 }
 
 void COM::calculate(){
-  Vector pos;
+  Vector pos, vel;
   if(!nopbc) makeWhole();
   double mass(0.0);
   vector<Tensor> deriv(getNumberOfAtoms());
@@ -119,9 +119,11 @@ void COM::calculate(){
   }
   for(unsigned i=0;i<getNumberOfAtoms();i++){
     pos+=(getMass(i)/mass)*getPosition(i);
+    vel+=(getMass(i)/mass)*getVelocity(i);
     deriv[i]=(getMass(i)/mass)*Tensor::identity();
   }
   setPosition(pos);
+  setVelocity(vel);
   setMass(mass);
   setAtomsDerivatives(deriv);
 }

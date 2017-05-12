@@ -48,6 +48,8 @@ class ActionWithVirtualAtom:
 protected:
 /// Set position of the virtual atom
   void setPosition(const Vector &);
+/// Set velocity of the virtual atom
+  void setVelocity(const Vector &);
 /// Set its mass
   void setMass(double);
 /// Set its charge
@@ -92,6 +94,11 @@ AtomNumber ActionWithVirtualAtom::getIndex()const{
 inline
 void ActionWithVirtualAtom::setPosition(const Vector & pos){
   atoms.positions[index.index()]=pos;
+}
+
+inline
+void ActionWithVirtualAtom::setVelocity(const Vector & vel){
+  atoms.velocities[index.index()]=vel;
 }
 
 inline
