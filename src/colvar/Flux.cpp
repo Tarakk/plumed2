@@ -216,9 +216,7 @@ namespace PLMD{
          pmone=2*(p%2)-1;
          halfbin=halfbin+p*pmone; //Move through the bins
        }
-
        //put halfbin inside the crystal volume (3 bins, WARNING!!! parameter dependent)
-
        ileft=halfbin;
        while(histz[ileft] < nint*Vbin){
          ileft=ileft-1;
@@ -234,8 +232,6 @@ namespace PLMD{
 
        zleft=dz*(ileft+1); //left interface coordinate
        zright=dz*(iright); //right interface coordinate
-     //log.printf("zleft=%f\n",zleft);
-     //log.printf("zright=%f\n",zright);
  
      
 
@@ -252,12 +248,27 @@ namespace PLMD{
 
       //Right side of the crystal
         }else if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          // molecules that are present within zleft <--> zleft+distp
-          fluxR += getVelocity(i)[2];
-          //log.printf("velocities right side=%f\n",getVelocity(i)[2]);
+          fluxR += getVelocity(getAbsoluteIndex(i))[2];
+          log.printf("before - velocities right side=%f\n",getVelocity(i)[2]);
         }
       }
 
-      fluxL=fluxL/dzfi;
+
+      // rescale the velocity of the particles present in the right side of the crystal
+      double k=-fluxL/fluxR; //factor to rescale velocity
+      for(unsigned int i=0;i<ga_lista.size();i+=1) {
+        Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(i));      // position with resepect to origin
+        if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];                           //add pbc here
+          double distancez = pos[2];
+          //Right side of the crystal
+          if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          
+             rescaleVelocity(getAbsoluteIndex(i),Vector(1.,1.,k));
+             fluxR += getVelocity(getAbsoluteIndex(i))[2];
+             log.printf("after - velocities right side=%f\n",getVelocity(getAbsoluteIndex(i))[2]);
+          }
+      } 
+
+      fluxL=fluxL/dzfi; //dividing the flux by the z-box distance
       fluxR=fluxR/dzfi;
 
       // difference in the fluxes 
@@ -269,9 +280,10 @@ namespace PLMD{
       getPntrToComponent("fluxR")->set(fluxR); //print out the interface coordinate
       getPntrToComponent("fluxL")->set(fluxL); //print out the interface coordinate
 
-      //setValue(fluxR);
+      //setValue(flux);
       getPntrToComponent("flux")->set(flux);
       //setBoxDerivativesNoPbc();
+
     }
   }  
 }    

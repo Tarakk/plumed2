@@ -285,4 +285,16 @@ void ActionAtomistic::makeWhole(){
   }
 }
 
+void ActionAtomistic::rescaleVelocity(AtomNumber index, Vector rescale){
+   if(atoms.isVirtualAtom(index)){
+      ActionWithVirtualAtom* a=atoms.getVirtualAtomsAction(index);
+      a->rescaleVelocityVirtualAtom(rescale);
+   } else {
+      Vector & newVel(modifyVelocity(index));
+      for(unsigned j=0;j<3;j++){
+         newVel[j] *= rescale[j];
+      }
+   }
+}
+
 }
