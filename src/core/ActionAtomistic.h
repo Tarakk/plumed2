@@ -86,6 +86,9 @@ public:
 /// Get modifiable velocity of i-th atom (access by absolute AtomNumber).
 /// Should be used by action that need to modify the stored atomic coordinates
   Vector & modifyVelocity(AtomNumber);
+/// Rescale velocity of i-th atom (access by absolute AtomNumber).
+/// Also can rescale velocities of virtual atoms
+  void rescaleVelocity(AtomNumber index, Vector rescale);
 /// Get total number of atoms, including virtual ones.
 /// Can be used to make a loop on modifyPosition or getPosition(AtomNumber)
 /// Get total number of atoms, including virtual ones.
