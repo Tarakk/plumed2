@@ -49,6 +49,7 @@ namespace PLMD{
     class Flux : public Colvar {
       bool isnotscaled;
       int  nbin;
+      unsigned stride_;
       double  nint;
       double zi,zf,dzfi;
       vector<AtomNumber> ga_lista,gb_lista; // a: urea atoms, b: water atoms
@@ -72,7 +73,7 @@ namespace PLMD{
       keys.add("optional","NINT","Interface localization: density of solvent molecules");
       keys.add("compulsory","zi","z initial for the slab");
       keys.add("compulsory","zf","z final for the slab, dzfi=|zf-zi|");
-    //keys.add("compulsory","STRIDE","the frequency with which the flux should be calculated.");
+      keys.add("compulsory","STRIDE","the frequency with which the flux should be calculated.");
     }
 
     Flux::Flux(const ActionOptions&ao):
@@ -112,8 +113,8 @@ namespace PLMD{
       parse("NINT",nint); //interface boundary concentration
       parse("NZ",nbin); //z histogram bins
 
-    //parse("STRIDE",stride); //frequency of calculating flux
-    //if(stride<=0) error("frequency for flux calculation is nonsensical");
+      parse("STRIDE",stride_); //frequency of calculating flux
+      if(stride_<=0) error("frequency for flux calculation is nonsensical");
 
       log.flush(); //DBG
       checkRead();
@@ -135,7 +136,6 @@ namespace PLMD{
       addComponent("zright"); componentIsNotPeriodic("zright");      
       addComponent("fluxL"); componentIsNotPeriodic("fluxL");      
       addComponent("fluxR"); componentIsNotPeriodic("fluxR");      
-      addComponent("flux"); componentIsNotPeriodic("flux");      
     }
 
     
@@ -234,45 +234,68 @@ namespace PLMD{
        zright=dz*(iright); //right interface coordinate
  
      
+    fluxL = 0.;
+    fluxR = 0.;
 
       // Calculation of flux
       for(unsigned int i=0;i<ga_lista.size();i+=1) {
         Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(i));      // position with resepect to origin
         if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];                           //add pbc here
         double distancez = pos[2];
-
-      //Left side of the crystal
+        AtomNumber index;
+	index = getAbsoluteIndex(i);
+        //Left side of the crystal
         if((distancez <= zleft-zi) && (distancez >= zleft-(zi+zf))){          // molecules that are present within zleft <--> zleft+distp
-          fluxL += getVelocity(i)[2];
-          //log.printf("velocities left side=%f\n",getVelocity(i)[2]);
-
-      //Right side of the crystal
+          fluxL += getVelocity(index)[2];
+        //Right side of the crystal
         }else if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          // molecules that are present within zleft <--> zleft+distp
-          fluxR += getVelocity(getAbsoluteIndex(i))[2];
-          log.printf("before - velocities right side=%f\n",getVelocity(i)[2]);
+          fluxR += getVelocity(index)[2];
         }
       }
 
 
-      // rescale the velocity of the particles present in the right side of the crystal
-      double k=-fluxL/fluxR; //factor to rescale velocity
+    if(getStep()%stride_==0) {
+
+    // rescale the velocity of the particles present in the right side of the crystal
+    double k=-fluxL/fluxR; //factor to rescale velocity
+    log.printf("k=%f\n",k);
+    for(unsigned int i=0;i<ga_lista.size();i+=1) {
+      Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(i));      // position with resepect to origin
+      if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];                           //add pbc here
+        double distancez = pos[2];
+        AtomNumber index;
+	index = getAbsoluteIndex(i);
+        //Right side of the crystal
+        if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          
+           //log.printf("before - verocities right side=%f\n",getVelocity(index)[2]);
+           rescaleVelocity(index,Vector(1.,1.,k));
+        }
+    } 
+
+    fluxR = 0.;
+
+      // Calculation of flux
       for(unsigned int i=0;i<ga_lista.size();i+=1) {
         Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(i));      // position with resepect to origin
         if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];                           //add pbc here
-          double distancez = pos[2];
-          //Right side of the crystal
-          if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          
-             rescaleVelocity(getAbsoluteIndex(i),Vector(1.,1.,k));
-             fluxR += getVelocity(getAbsoluteIndex(i))[2];
-             log.printf("after - velocities right side=%f\n",getVelocity(getAbsoluteIndex(i))[2]);
-          }
-      } 
+        double distancez = pos[2];
+        AtomNumber index;
+	index = getAbsoluteIndex(i);
+        //Right side of the crystal
+        if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          // molecules that are present within zleft <--> zleft+distp
+          //fluxR += getVelocity(getAbsoluteIndex(i))[2];
+          fluxR += getVelocity(index)[2];
+        }
+      }
+
+    }
+
 
       fluxL=fluxL/dzfi; //dividing the flux by the z-box distance
       fluxR=fluxR/dzfi;
 
       // difference in the fluxes 
-      flux=abs(abs(fluxL)-abs(fluxR));
+      //flux=abs(abs(fluxL)-abs(fluxR));
 
       getPntrToComponent("zleft")->set(zleft); //print out the left interface coordinate
       getPntrToComponent("zright")->set(zright); //print out the right interface coordinate
@@ -281,7 +304,6 @@ namespace PLMD{
       getPntrToComponent("fluxL")->set(fluxL); //print out the interface coordinate
 
       //setValue(flux);
-      getPntrToComponent("flux")->set(flux);
       //setBoxDerivativesNoPbc();
 
     }
