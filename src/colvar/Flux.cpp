@@ -36,13 +36,18 @@ namespace PLMD{
 
     //+PLUMEDOC COLVAR FLUX 
     /*
-      Calculates the number of molecules passing through an imaginary plane placed at a certain
-      distance away from the interface. 
+      Calculates the velocity of particles present in a given surface of width
+      dzfi=zf-zi, flux is defined as the sume over all the z-component velocity of 
+      the solute molecules divided by dzfi.
+ 
+      NINT is used to find out the liquid-crystal interface, NZ: no. of bins
+      STRIDE: frequency of calculating flux 
+ 
       Use:
       # Define groups for Flux
       GROUP ATOMS=1-5432:8 LABEL=urea        #all urea + water atoms
       GROUP ATOMS=5433-10703:3 LABEL=solv   #all water atoms
-      FLUX GROUPA=urea GROUPB=solv NINT=10 NZ=188 zi=0.5 zf=1.0 LABEL=flux
+      FLUX GROUPA=urea GROUPB=solv NINT=10 NZ=188 zi=0.5 zf=1.0 STRIDE=100 LABEL=flux
     */
     //+ENDPLUMEDOC
    
@@ -106,7 +111,7 @@ namespace PLMD{
       parse("zi",zi); //distance from the left side of the interface
       parse("zf",zf); //distance from the left side of the interface
    
-      dzfi=abs(zf-zi); 
+      dzfi=abs(zf-zi); //width of the surface
       
       nint=0.0; //default values
       nbin=100;
@@ -153,12 +158,6 @@ namespace PLMD{
       double LBC[3];
       for(int i=0;i<3;++i) LBC[i]=getBox()[i][i]; 
 
-      // printing velocities of atoms
-    //for(int i=0; i<ga_lista.size(); i+=1){
-    //    v[i] = getVelocity(i);
-    //    log.printf("velocities of atoms=%f %f %f\n",v[i][0],v[i][1],v[i][2]);
-    //}
-      
 
       //Histogram settings (for interface localization).............................................
       //histz-array allocation
@@ -190,7 +189,7 @@ namespace PLMD{
          } else {
            smooth_histu[i]=(histu[i]+histu[i-1]+histu[i+1])/3.;
          }
-       //log.printf("Histogram= %d %f\n",i,smooth_histu[i]);
+       //log.printf("Histogram= %d %f\n",i,smooth_histu[i]); //useful to plot the solute distribution across the box
       }
       
 
@@ -234,8 +233,8 @@ namespace PLMD{
        zright=dz*(iright); //right interface coordinate
  
      
-    fluxL = 0.;
-    fluxR = 0.;
+      fluxL = 0.;
+      fluxR = 0.;
 
       // Calculation of flux
       for(unsigned int i=0;i<ga_lista.size();i+=1) {
@@ -248,7 +247,7 @@ namespace PLMD{
         if((distancez <= zleft-zi) && (distancez >= zleft-(zi+zf))){          // molecules that are present within zleft <--> zleft+distp
           fluxL += getVelocity(index)[2];
         //Right side of the crystal
-        }else if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          // molecules that are present within zleft <--> zleft+distp
+        }else if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){   // molecules that are present within zleft <--> zleft+distp
           fluxR += getVelocity(index)[2];
         }
       }
@@ -257,7 +256,7 @@ namespace PLMD{
     if(getStep()%stride_==0) {
 
     // rescale the velocity of the particles present in the right side of the crystal
-    double k=-fluxL/fluxR; //factor to rescale velocity
+    double k=fluxL/fluxR; //factor to rescale velocity, 
     log.printf("k=%f\n",k);
     for(unsigned int i=0;i<ga_lista.size();i+=1) {
       Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(i));      // position with resepect to origin
@@ -268,7 +267,8 @@ namespace PLMD{
         //Right side of the crystal
         if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          
            //log.printf("before - verocities right side=%f\n",getVelocity(index)[2]);
-           rescaleVelocity(index,Vector(1.,1.,k));
+           rescaleVelocity(index,Vector(1.,1.,k)); //adding positive velocity to the particles
+                                                   // present in the right side of the crystal
         }
     } 
 
@@ -283,7 +283,6 @@ namespace PLMD{
 	index = getAbsoluteIndex(i);
         //Right side of the crystal
         if((distancez >= zright+zi) && (distancez <= zright+(zi+zf))){          // molecules that are present within zleft <--> zleft+distp
-          //fluxR += getVelocity(getAbsoluteIndex(i))[2];
           fluxR += getVelocity(index)[2];
         }
       }
@@ -295,7 +294,7 @@ namespace PLMD{
       fluxR=fluxR/dzfi;
 
       // difference in the fluxes 
-      //flux=abs(abs(fluxL)-abs(fluxR));
+      //flux=abs(abs(fluxL)-abs(fluxR)); //is zero in case of equal and opposite flux in both side of the crystal
 
       getPntrToComponent("zleft")->set(zleft); //print out the left interface coordinate
       getPntrToComponent("zright")->set(zright); //print out the right interface coordinate
