@@ -55,6 +55,7 @@ namespace PLMD{
       bool isnotscaled;
       int  nbin;
       unsigned stride_;
+      unsigned stridef;
       double  nint;
       double zi,zf,dzfi;
       vector<AtomNumber> ga_lista,gb_lista; // a: urea atoms, b: water atoms
@@ -79,6 +80,7 @@ namespace PLMD{
       keys.add("compulsory","zi","z initial for the slab");
       keys.add("compulsory","zf","z final for the slab, dzfi=|zf-zi|");
       keys.add("compulsory","STRIDE","the frequency with which the flux should be calculated.");
+      keys.add("compulsory","STRIDEF","the frequency with which the flux-z should be calculated.");
     }
 
     Flux::Flux(const ActionOptions&ao):
@@ -121,6 +123,9 @@ namespace PLMD{
       parse("STRIDE",stride_); //frequency of calculating flux
       if(stride_<=0) error("frequency for flux calculation is nonsensical");
 
+      parse("STRIDEF",stridef); //frequency of calculating flux-z
+      if(stridef<=0) error("frequency for flux calculation is nonsensical");
+
       log.flush(); //DBG
       checkRead();
       
@@ -150,6 +155,7 @@ namespace PLMD{
       double flux;
       double fluxL;
       double fluxR;
+      double sum_x;
       vector<Vector> solut_x(ga_lista.size());      
       vector<Vector> solv_x(gb_lista.size());      
       vector<Vector> v(ga_lista.size()); //define a vector that stores velocities of the particles     
@@ -163,6 +169,7 @@ namespace PLMD{
       //histz-array allocation
       vector<int> histz(nbin,0.0);
       int nz=0;
+      int nx=0;
       //bins width (time dependent)
       double dz=LBC[2]/nbin;
       double Vbin=LBC[0]*LBC[1]*dz; //Bin volume [nm^3]  
@@ -189,8 +196,37 @@ namespace PLMD{
          } else {
            smooth_histu[i]=(histu[i]+histu[i-1]+histu[i+1])/3.;
          }
-       //log.printf("Histogram= %d %f\n",i,smooth_histu[i]); //useful to plot the solute distribution across the box
+         //log.printf("Histogram= %d %f\n",i,smooth_histu[i]); //useful to plot the solute distribution across the box
       }
+
+
+       // calculate the flux as a function of the z-box length
+       if(getStep()%stridef==0) {
+          sum_x=0.;
+          vector<int> histx(nbin,0.0);
+          for(int i=0; i<ga_lista.size(); i+=1){
+              solut_x[i] = pbcDistance(Vector(0.,0.,0.),getPosition(i));
+
+              //impose PBC (useless on x and y for now!!!)
+              if(solut_x[i][2]<0) solut_x[i][2]=solut_x[i][2]+LBC[2];
+              nx=(int)(solut_x[i][2]/dz); //fill histogram
+              sum_x+=getVelocity(i)[2];
+              histx[nx]=sum_x;
+          }
+
+          // Smooth histogram
+          vector<double> smooth_histx(nbin,0.0);
+          for(int i=0; i<nbin; i+=1){
+             if (i==0) {
+               smooth_histx[i]=(histx[i]+histx[i+1])/2.;
+             } else if (i==(nbin-1)) {
+               smooth_histx[i]=(histx[i]+histx[i-1])/2.;
+             } else {
+               smooth_histx[i]=(histx[i]+histx[i-1]+histx[i+1])/3.;
+             }
+             log.printf("Histogram= %f %f\n",i*dz,smooth_histx[i]/dz); 
+          }
+       }
       
 
       // Solvent distribution
@@ -257,7 +293,7 @@ namespace PLMD{
 
     // rescale the velocity of the particles present in the right side of the crystal
     double k=fluxL/fluxR; //factor to rescale velocity, 
-    log.printf("k=%f\n",k);
+    //log.printf("k=%f\n",k);
     for(unsigned int i=0;i<ga_lista.size();i+=1) {
       Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(i));      // position with resepect to origin
       if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];                           //add pbc here
@@ -269,6 +305,7 @@ namespace PLMD{
            //log.printf("before - verocities right side=%f\n",getVelocity(index)[2]);
            rescaleVelocity(index,Vector(1.,1.,k)); //adding positive velocity to the particles
                                                    // present in the right side of the crystal
+           //log.printf("after - verocities right side=%f\n",getVelocity(index)[2]);
         }
     } 
 
@@ -286,7 +323,7 @@ namespace PLMD{
           fluxR += getVelocity(index)[2];
         }
       }
-
+ 
     }
 
 
