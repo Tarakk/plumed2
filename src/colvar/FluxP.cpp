@@ -34,50 +34,50 @@ using namespace std;
 namespace PLMD{
   namespace colvar{
 
-    //+PLUMEDOC COLVAR DENSITY 
+    //+PLUMEDOC COLVAR FLUXP 
     /*
       Calculates the number of molecules passing through an imaginary plane placed at a certain
       distance away from the interface. 
       Use:
-      # Define groups for Density
+      # Define groups for FluxP
       GROUP ATOMS=1-5432:8 LABEL=urea        #all urea + water atoms
       GROUP ATOMS=5433-10703:3 LABEL=solv   #all water atoms
-      DENSITY GROUPA=urea GROUPB=solv NINT=10 NZ=188 DCR=1.0 LABEL=density
+      FLUXP GROUPA=urea GROUPB=solv NINT=10 NZ=188 DISTP=0.05 LABEL=fluxP
     */
     //+ENDPLUMEDOC
    
-    class Density : public Colvar {
+    class FluxP : public Colvar {
       bool isnotscaled;
       int  nbin;
-      double  nint, dcr;
-      vector<unsigned> atomsR; //atoms in the Right (R) side of the crystal (C), left (l) of the plane
+      double  nint, distp;
+      vector<unsigned> atomsRCl; //atoms in the Right (R) side of the crystal (C), left (l) of the plane
       vector<unsigned> atomsRCr; //atoms in the Right (R) side of the crystal (C), right (r) of the plane
 
       vector<unsigned> atomsLCl; //atoms in the Left  (L) side of the crystal (C), left (l) of the plane
-      vector<unsigned> atomsL; //atoms in the Left  (L) side of the crystal (C), left (r) of the plane
+      vector<unsigned> atomsLCr; //atoms in the Left  (L) side of the crystal (C), left (r) of the plane
       vector<AtomNumber> ga_lista,gb_lista; // a: urea atoms, b: water atoms
       bool           pbc;
 
       
     public:
-      Density(const ActionOptions&);
+      FluxP(const ActionOptions&);
       virtual void calculate();
       static void registerKeywords(Keywords& keys);
       ofstream fdbg;
     };
 
-    PLUMED_REGISTER_ACTION(Density,"DENSITY")
+    PLUMED_REGISTER_ACTION(FluxP,"FLUXP")
 
-    void Density::registerKeywords(Keywords& keys){
+    void FluxP::registerKeywords(Keywords& keys){
       Colvar::registerKeywords(keys);
       keys.add("atoms","GROUPA","Urea atoms");
       keys.add("atoms","GROUPB","water atoms)");
       keys.add("optional","NZ","Interface localization: zbin");
       keys.add("optional","NINT","Interface localization: density of solvent molecules");
-      keys.add("compulsory","DCR","distance from the right side of the plane");
+      keys.add("compulsory","DISTP","distance from the right side of the plane");
     }
 
-    Density::Density(const ActionOptions&ao):
+    FluxP::FluxP(const ActionOptions&ao):
       PLUMED_COLVAR_INIT(ao),
       //init bool parameters
       isnotscaled(false),
@@ -104,7 +104,7 @@ namespace PLMD{
        }
 
      
-      parse("DCR",dcr); //distance from the left side of the interface
+      parse("DISTP",distp); //distance from the left side of the interface
  
       
       nint=0.0; //default values
@@ -129,18 +129,18 @@ namespace PLMD{
     // Add output component
     //addComponent("intleft"); componentIsNotPeriodic("inleft");      
     //addComponent("intright"); componentIsNotPeriodic("intright");      
-      addComponent("densityL"); componentIsNotPeriodic("densityL");      
-      addComponent("densityR"); componentIsNotPeriodic("densityR");      
-      addComponent("density"); componentIsNotPeriodic("density");      
+      addComponent("fluxPL"); componentIsNotPeriodic("fluxPL");      
+      addComponent("fluxPR"); componentIsNotPeriodic("fluxPR");      
+      addComponent("fluxP"); componentIsNotPeriodic("fluxP");      
     }
 
     
     // calculator
-    void Density::calculate()    
+    void FluxP::calculate()    
     {
-      double density;
-      double densityL;
-      double densityR;
+      double fluxP;
+      double fluxPL,fluxP1L,fluxP2L;
+      double fluxPR,fluxP1R,fluxP2R;
       vector<Vector> solv_x(gb_lista.size());      
       
       //Box size
@@ -198,66 +198,109 @@ namespace PLMD{
        zright=dz*(iright); //right interface coordinate
        log.printf("zleft=%f\n",zleft);
        log.printf("zright=%f\n",zright);
+     //double pos_left=zleft;
+     //double pos_right=zright;
  
+     //getPntrToComponent("intleft")->set(pos_left); //print out the interface coordinate
+     //getPntrToComponent("intright")->set(pos_right); //print out the interface coordinate
+     
 
-      // Calculation of density
-      // calculate density right side of the interface, checking the depletion.................................................................
+      // Calculation of fluxP
+      // calculate fluxP right side of the interface, checking the depletion.................................................................
       // calculate number of molecules crossing the plane
-      densityR = 0.;
-      for(unsigned int j=0;j<atomsR.size();j++){
-        Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(atomsR[j]));      // position with resepect to origin
+      fluxP1R = 0.;
+      for(unsigned int j=0;j<atomsRCl.size();j++){
+        Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(atomsRCl[j]));      // position with resepect to origin
         if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];    //add pbc here
         //if(pos[2]>=LBC[2]) pos[2]=pos[2]-LBC[2];                           //add pbc here
         double distancez = pos[2];
-        if((distancez >= zright+(dcr)) ){      //imaginary plane has been placed dcr distance away from the interface
-          densityR += 1.;
+        if((distancez >= zright+(distp)) ){      //imaginary plane has been placed distp distance away from the interface
+          fluxP1R += 1.;
         //log.printf("atoms in the left=%f %f %f\n",getAbsoluteIndex(j));
         }
       }
-      atomsR.clear();
+      atomsRCl.clear();
 
-      // Calculate density in the left side of the crystal (check the growth rate)...............................................................
-      densityL=0.;
-      for(unsigned int j=0;j<atomsL.size();j++){
-        Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(atomsL[j]));      // position with resepect to origin
+      // keep a track of molecules coming into the region defined
+      fluxP2R = 0.;
+      for(unsigned int j=0;j<atomsRCr.size();j++){
+        Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(atomsRCr[j]));      // position with resepect to origin
+        if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];                          //add pbc here
+        //if(pos[2]>=LBC[2]) pos[2]=pos[2]-LBC[2];                     //add pbc here
+        double distancez = pos[2];
+        if((distancez <= zright+(distp)) ){                      //imaginary plane has been placed distp distance away from the interface
+          fluxP2R += 1.;
+        }
+      }
+      atomsRCr.clear();
+
+
+      // Calculate fluxP in the left side of the crystal (check the growth rate)...............................................................
+      fluxP1L=0.;
+      for(unsigned int j=0;j<atomsLCr.size();j++){
+        Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(atomsLCr[j]));      // position with resepect to origin
         if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];    //add pbc here
         //if(pos[2]>=LBC[2]) pos[2]=pos[2]-LBC[2];                           //add pbc here
         double distancez = pos[2];
-        if((distancez <= zleft-(dcr)) ){      //imaginary plane has been placed dcr distance away from the interface
-          densityL += 1.;
+        if((distancez <= zleft-(distp)) ){      //imaginary plane has been placed distp distance away from the interface
+          fluxP1L += 1.;
         //log.printf("atoms in the left=%f %f %f\n",getAbsoluteIndex(j));
         }
       }
-      atomsL.clear();
+      atomsLCr.clear();
 
+      // keep a track of molecules coming into the region defined
+      fluxP2L = 0.;
+      for(unsigned int j=0;j<atomsLCl.size();j++){
+        Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(atomsLCl[j]));      // position with resepect to origin
+        if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];                          //add pbc here
+        //if(pos[2]>=LBC[2]) pos[2]=pos[2]-LBC[2];                     //add pbc here
+        double distancez = pos[2];
+        if((distancez >= zleft-(distp)) ){                      //imaginary plane has been placed distp distance away from the interface
+          fluxP2L += 1.;
+        }
+      }
+      atomsLCl.clear();
+
+      //Left side of the crystal
       // Store atoms in left and right side of the plane
       for(unsigned int i=0;i<ga_lista.size();i+=1) {
         Vector pos = pbcDistance(Vector(0.,0.,0.),getPosition(i));      // position with resepect to origin
         if(pos[2]<=0.0) pos[2]=pos[2]+LBC[2];                           //add pbc here
+        //if(pos[2]>=LBC[2]) pos[2]=pos[2]-LBC[2];                      //add pbc here
         double distancez = pos[2];
-      //Left side of the crystal
-        if((distancez <= zleft) && (distancez >= zleft-(dcr))){          // molecules that are present within zleft <--> zleft+dcr
-            atomsL.push_back(i);             // storing atom indices into the vector atomsL
+        if((distancez <= zleft) && (distancez >= zleft-(distp))){          // molecules that are present within zleft <--> zleft+distp
+            atomsLCr.push_back(i);             // storing atom indices into the vector atomsL
+          //log.printf("atoms in the left=%d \n ",ga_lista[i].serial());
+        }else if(distancez <= zleft-(distp) && (distancez >= zleft-2*(distp))){     // molecules that are present inside a block right after the plane
+            atomsLCl.push_back(i);             //storing atom indices into the vector atomsR
+
       //Right side of the crystal
-        }else if((distancez >= zright) && (distancez <= zright+(dcr))){          // molecules that are present within zleft <--> zleft+dcr
-            atomsR.push_back(i);             // storing atom indices into the vector atomsL
+      //store atoms in left and right side of the plane 
+          //log.printf("atoms in the right=%d \n ",ga_lista[i].serial());
+        }else if((distancez >= zright) && (distancez <= zright+(distp))){          // molecules that are present within zleft <--> zleft+distp
+            atomsRCl.push_back(i);             // storing atom indices into the vector atomsL
+          //log.printf("atoms in the left=%d \n ",ga_lista[i].serial());
+        }else if(distancez >= zright+(distp) && (distancez <= zright+2*(distp))){     // molecules that are present inside a block right after the plane
+            atomsRCr.push_back(i);             //storing atom indices into the vector atomsR
+          //log.printf("atoms in the right=%d \n ",ga_lista[i].serial());
         }
       }
 
-      // Total density in the right side densityR
-      densityR=densityR;
+      // Total fluxP in the right side fluxPR= fluxP1-fluxP2
+      fluxPR=fluxP2R-fluxP1R;
 
-      // Total density in the left side densityL
-      densityL=densityL;
+      // Total fluxP in the left side fluxPL= fluxP1L-fluxP2L
+      fluxPL=fluxP2L-fluxP1L;
       
-      // difference in the densityes 
-      density=abs(abs(densityL)-abs(densityR));
+      // difference in the fluxPes 
+      fluxP=abs(abs(fluxPL)-abs(fluxPR));
 
-      getPntrToComponent("densityR")->set(densityR); //print out the interface coordinate
-      getPntrToComponent("densityL")->set(densityL); //print out the interface coordinate
+      getPntrToComponent("fluxPR")->set(fluxPR); //print out the interface coordinate
+      getPntrToComponent("fluxPL")->set(fluxPL); //print out the interface coordinate
 
-      //setValue(densityR);
-      getPntrToComponent("density")->set(density);
+      //setValue(fluxPR);
+      getPntrToComponent("fluxP")->set(fluxP);
       //setBoxDerivativesNoPbc();
     }
   }  
