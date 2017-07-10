@@ -45,8 +45,6 @@ namespace PLMD{
       //      SwitchingFunction switchingFunction; //instance sw.f
       bool issolute,isdelta;
       bool isnotscaled;
-      bool isFirstStep;
-      int storeHalfBin;
       int  N_st, N_sv, Na_sv_permol, Na_st_permol, Na_sv, Na_st, N_mol, com_sv, com_st, nbin, asymm;
       double  iD_CR, iD_F, iCR_Size, iw_force, iw_in, iw_out, co_out, co_in, co_f, nint, fixi;
       
@@ -196,7 +194,7 @@ namespace PLMD{
       requestAtoms(at_list);
       log.printf("  \n");
       log.flush();       
-      isFirstStep=true;
+      
     }
 
     double Nshell::sigmon(double z, double Coff){
@@ -344,50 +342,27 @@ namespace PLMD{
 	}
        // log.printf("nz=%d\n",nz);
       }
- 
-      // Smooth histogram
-      vector<double> smooth_histz(nbin,0.0);
-       for(int i=0; i<nbin; i+=1){
-         if (i==0) {
-           smooth_histz[i]=(histz[i]+histz[i+1])/2.;
-         } else if (i==(nbin-1)) {
-           smooth_histz[i]=(histz[i]+histz[i-1])/2.;
-         } else {
-           smooth_histz[i]=(histz[i]+histz[i-1]+histz[i+1])/3.;
-         }
-         //log.printf("Histogram= %d %f\n",i,smooth_histz[i]); //useful to plot the solute distribution across the box
-       }
-
-       for(int i=0; i<nbin; i+=1){
-            histz[i] = smooth_histz[i];
-       }
-
+      
       //communicate
       comm.Sum(histz);
       comm.Sum(com_solv);
 
       //Get the liquid-crystal interfaces
       double halfbin, ileft, iright, zleft, zright;
+      halfbin=(int)(LBC[2]/(2*dz));
+      int p=0;
+      int pmone=0;
       
-       //interface finder
-       if(fixi<0){
-         if (isFirstStep) {
-            isFirstStep=false;
-            halfbin=(int)(LBC[2]/(2*dz));
-            int p=0;
-            int pmone=0;
-      
-	    //find the crystal if it's not at the half, it finds the crystal before halfbin exceeds the limits 
-     	    //3 adjacent bins with water concentration < than nint/3
-   	    while((histz[halfbin]+histz[halfbin+1]+histz[halfbin-1]) > nint*Vbin){
-	         p++;
-	         pmone=2*(p%2)-1;
-	         halfbin=halfbin+p*pmone; //Move through the bins
-            }
-         } else {
-           halfbin=storeHalfBin;
-         }
-
+      //interface finder
+      if(fixi<0){
+	
+	//find the crystal if it's not at the half, it finds the crystal before halfbin exceeds the limits 
+	//3 adjacent bins with water concentration < than nint/3
+	while((histz[halfbin]+histz[halfbin+1]+histz[halfbin-1]) > nint*Vbin){
+	  p++;
+	  pmone=2*(p%2)-1;
+	  halfbin=halfbin+p*pmone; //Move through the bins
+	}
 	
 	//put halfbin inside the crystal volume (3 bins, WARNING!!! parameter dependent)
 	
@@ -397,14 +372,13 @@ namespace PLMD{
 	  if(ileft<0) ileft=ileft+nbin; //pbc on left
 	}
 	
-        iright=halfbin; //WARNING!!! parameter dependent
+	iright=ileft+10; //WARNING!!! parameter dependent
 	if(iright>=nbin) iright=iright-nbin; //pbc on right
 	while(histz[iright]< nint*Vbin){
 	  iright=iright+1;
 	  if(iright>=nbin) iright=iright-nbin; //pbc on right
 	}
       
-        storeHalfBin=(ileft+iright)/2;
 	zleft=dz*(ileft+1); //left interface coordinate
 	zright=dz*(iright); //right interface coordinate
       }else{
@@ -413,6 +387,7 @@ namespace PLMD{
       }
      
       //Fermi function parameters
+      
       double ZCRrin, ZCRrout, ZCRlin, ZCRlout, ZFright, ZFleft;
       ZCRlin=zleft-D_CR;
       ZCRlout=zleft-D_CR-CR_Size;
