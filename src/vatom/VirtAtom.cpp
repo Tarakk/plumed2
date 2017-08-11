@@ -55,6 +55,8 @@ namespace PLMD{
       vector<unsigned> atomsL; //atoms in the Left  (L) side of the crystal (C), left (r) of the plane
       vector<AtomNumber> ga_lista,gb_lista; // a: urea atoms, b: water atoms
       bool           pbc;
+      bool isFirstStep;
+      int storeHalfBin;
 
       
     public:
@@ -106,6 +108,7 @@ namespace PLMD{
        }
       requestAtoms(full_lista);
       log.flush();       
+      isFirstStep=true;
     }
 
     
@@ -145,29 +148,35 @@ namespace PLMD{
       int p=0;
       int pmone=0;
 
-      while((histz[halfbin]+histz[halfbin+1]+histz[halfbin-1]) > nint*Vbin){
-         p++;
-         pmone=2*(p%2)-1;
-         halfbin=halfbin+p*pmone; //Move through the bins
-       }
+      if (isFirstStep) {
+      isFirstStep=false;
+        while((histz[halfbin]+histz[halfbin+1]+histz[halfbin-1]) > nint*Vbin){
+           p++;
+           pmone=2*(p%2)-1;
+           halfbin=halfbin+p*pmone; //Move through the bins
+         }
 
-       //put halfbin inside the crystal volume (3 bins, WARNING!!! parameter dependent)
-
-       ileft=halfbin;
-       while(histz[ileft] < nint*Vbin){
-         ileft=ileft-1;
+      } else {
+        halfbin=storeHalfBin;
+      }
+         //put halfbin inside the crystal volume (3 bins, WARNING!!! parameter dependent)
+         ileft=halfbin;
          if(ileft<0) ileft=ileft+nbin; //pbc on left
-       }
+         while(histz[ileft] < nint*Vbin){
+           ileft=ileft-1;
+           if(ileft<0) ileft=ileft+nbin; //pbc on left
+         }
 
-       iright=ileft+10; //WARNING!!! parameter dependent
-       if(iright>=nbin) iright=iright-nbin; //pbc on right
-       while(histz[iright]< nint*Vbin){
-         iright=iright+1;
+         iright=halfbin; //WARNING!!! parameter dependent
          if(iright>=nbin) iright=iright-nbin; //pbc on right
-       }
+         while(histz[iright]< nint*Vbin){
+           iright=iright+1;
+           if(iright>=nbin) iright=iright-nbin; //pbc on right
+         }
 
-       zleft=dz*(ileft+1); //left interface coordinate
-       zright=dz*(iright); //right interface coordinate
+      storeHalfBin=(ileft+iright)/2;
+         zleft=dz*(ileft+1); //left interface coordinate
+         zright=dz*(iright); //right interface coordinate
  
        double mass=1.0;
        // Z-coordinate of the virtual atom 

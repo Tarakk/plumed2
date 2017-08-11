@@ -58,6 +58,7 @@ namespace PLMD{
       double sigmoff(double z, double Coff);
       double dsig(double z, double Coff);
       ofstream fdbg;
+      //double shift;
     };
 
     PLUMED_REGISTER_ACTION(Nshell,"NSHELL")
@@ -306,11 +307,25 @@ namespace PLMD{
       }else{
 	VCR=LBC[0]*LBC[1]*CR_Size; //CR volume 
       }
-  
      
+
+     // Restrain the crystal in the middle of the box
+     //double zleft, zright;
+     //double ccrystal;
+      //log.printf("ccrystal, Shift %f %f \n",ccrystal, shift);
+      //log.printf("Shift %f \n",shift);
+      //Natot=Na_st+Na_sv;
+      //log.printf("Natot %d \n",Natot);
+      //log.printf("Na_st, Na_sv, Natot= %d %d %d \n",Na_st,Na_sv,Natot);
+          // shift the coordinates of all atoms 
+//              for(int i=0; i<Natot; ++i){
+//                 AtomNumber index;
+//                 index = getAbsoluteIndex(i);
+//                 Vector & ato (modifyPosition(index));
+//                 ato += Vector(0.,0.,shift);
+//              }
       
       //Histogram settings (for interface localization)
-    
       //histz-array allocation
       vector<int> histz(nbin,0.0);
       int nz=0;
@@ -366,9 +381,10 @@ namespace PLMD{
       comm.Sum(histz);
       comm.Sum(com_solv);
 
-      //Get the liquid-crystal interfaces
-      double halfbin, ileft, iright, zleft, zright;
-      
+
+     //Get the liquid-crystal interfaces
+     double halfbin, ileft, iright, zleft, zright;
+
        //interface finder
        if(fixi<0){
          if (isFirstStep) {
@@ -377,6 +393,7 @@ namespace PLMD{
             int p=0;
             int pmone=0;
       
+
 	    //find the crystal if it's not at the half, it finds the crystal before halfbin exceeds the limits 
      	    //3 adjacent bins with water concentration < than nint/3
    	    while((histz[halfbin]+histz[halfbin+1]+histz[halfbin-1]) > nint*Vbin){
@@ -384,14 +401,14 @@ namespace PLMD{
 	         pmone=2*(p%2)-1;
 	         halfbin=halfbin+p*pmone; //Move through the bins
             }
-         } else {
-           halfbin=storeHalfBin;
-         }
+        } else {
+          halfbin=storeHalfBin;
+        }
 
 	
 	//put halfbin inside the crystal volume (3 bins, WARNING!!! parameter dependent)
-	
 	ileft=halfbin;
+	if(ileft<0) ileft=ileft+nbin; //pbc on left
 	while(histz[ileft] < nint*Vbin){
 	  ileft=ileft-1;
 	  if(ileft<0) ileft=ileft+nbin; //pbc on left
@@ -411,8 +428,11 @@ namespace PLMD{
 	zleft=fix_int;
 	zright=fix_int;
       }
+
+     // calculate the shift
+      //double ccrystal=(zleft+zright)/2.0;
+      //shift = (LBC[2]/2.0) - ccrystal;   //calculation of the shift
      
-      //Fermi function parameters
       double ZCRrin, ZCRrout, ZCRlin, ZCRlout, ZFright, ZFleft;
       ZCRlin=zleft-D_CR;
       ZCRlout=zleft-D_CR-CR_Size;
@@ -591,6 +611,7 @@ namespace PLMD{
       setValue(n_CR/VCR);
       setBoxDerivatives(virial);
       //setBoxDerivativesNoPbc();
+
     }
   }  
 }    
