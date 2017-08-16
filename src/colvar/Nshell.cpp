@@ -421,14 +421,23 @@ namespace PLMD{
 	  if(iright>=nbin) iright=iright-nbin; //pbc on right
 	}
       
-        storeHalfBin=(ileft+iright)/2;
-	zleft=dz*(ileft+1); //left interface coordinate
-	zright=dz*(iright); //right interface coordinate
+      storeHalfBin=(ileft+iright)/2;
+      while(ileft> nbin/2) {
+         ileft=ileft-nbin; // effect of PBC in finding the interface
+         storeHalfBin=(ileft+iright)/2;
+      }
+    //log.printf("ielft and iright %f %f \n",ileft,iright);
+
+      if(ileft<0) ileft=ileft+nbin; //pbc on left
+      zleft=dz*(ileft+1); //left interface coordinate
+      zright=dz*(iright); //right interface coordinate
+    //log.printf("zleft and zright %f %f \n",zleft,zright);
       }else{
 	zleft=fix_int;
 	zright=fix_int;
       }
 
+     //log.printf("zleft and zright %f %f \n",zleft,zright);
      // calculate the shift
       //double ccrystal=(zleft+zright)/2.0;
       //shift = (LBC[2]/2.0) - ccrystal;   //calculation of the shift

@@ -161,7 +161,7 @@ namespace PLMD{
       }
          //put halfbin inside the crystal volume (3 bins, WARNING!!! parameter dependent)
          ileft=halfbin;
-         if(ileft<0) ileft=ileft+nbin; //pbc on left
+         //if(ileft<0) ileft=ileft+nbin; //pbc on left
          while(histz[ileft] < nint*Vbin){
            ileft=ileft-1;
            if(ileft<0) ileft=ileft+nbin; //pbc on left
@@ -174,9 +174,17 @@ namespace PLMD{
            if(iright>=nbin) iright=iright-nbin; //pbc on right
          }
 
+      //log.printf("ielft and iright %f %f \n",ileft,iright);
       storeHalfBin=(ileft+iright)/2;
+      while(ileft> nbin/2) {
+         ileft=ileft-nbin; // effect of PBC in finding the interface
+         storeHalfBin=(ileft+iright)/2;
+      }
+
+      if(ileft<0) ileft=ileft+nbin; //pbc on left
          zleft=dz*(ileft+1); //left interface coordinate
          zright=dz*(iright); //right interface coordinate
+      //log.printf("zelft and zright %f %f \n",zleft,zright);
  
        double mass=1.0;
        // Z-coordinate of the virtual atom 
