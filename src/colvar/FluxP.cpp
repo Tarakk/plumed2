@@ -215,8 +215,11 @@ namespace PLMD{
         if(iright>=nbin) iright=iright-nbin; //pbc on right
       }
       storeHalfBin=(ileft+iright)/2;
+    
+      // effect of PBC when the left interface is close to the left side
+      // of the box, and eventually appears in the other side of the box due to PBC
       while(ileft> nbin/2) {
-         ileft=ileft-nbin; // effect of PBC in finding the interface
+         ileft=ileft-nbin; 
          storeHalfBin=(ileft+iright)/2;
       }
 
