@@ -1,0 +1,10 @@
+To obtain PLUMED2 with CuMD,
+      git clone https://github.com/Tarakk/plumed2.git
+
+
+
+Install PLUMED2 with standard protocol provided in the PLUMED2 website,
+      Installation link (https://www.plumed.org/doc-v2.5/user-doc/html/_installation.html)
+      
+      
+To run CuMD, 
