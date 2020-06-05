@@ -15,8 +15,17 @@
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 
    CmuMD method file, 
-   see (and cite) Perego, Salvalaglio, Parrinello J. Chem. Phys. 142 144113 (2015) 
+   see (and cite) 
+   1. Perego, Salvalaglio, Parrinello J. Chem. Phys. 142 144113 (2015) 
    http://scitation.aip.org/content/aip/journal/jcp/142/14/10.1063/1.4917200
+   
+   2. Karmakar, Piaggi, Perego & Parrinello, J. Chem. Theory Comput. 2018, 14, 5, 2678–2683
+   https://doi.org/10.1021/acs.jctc.8b00191
+   
+   Spherical version
+   3. Karmakar, Piaggi, Parrinello, J. Chem. Theory Comput. 2019, 15, 12, 6923–6930
+   https://doi.org/10.1021/acs.jctc.9b00795
+   
    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
  
 #include "Colvar.h"
