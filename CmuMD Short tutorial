@@ -25,7 +25,7 @@ In order to obtain PLUMED with CmuMD, please do the following,
 5. If successfully compiled, source PLUMED by the following command
             source $PLUMED/sourceme.sh
 
-6. Check if the installed PLUMED is the one that you have just installed, 
+6. Check if the existing PLUMED is the one that you have just installed, 
             which plumed
    This should display the installation path
    
